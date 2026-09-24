@@ -105,10 +105,7 @@ u32 timerRead(u16 index);
 ///
 /// @param index
 ///     Timer index (0 or 1).
-static inline void timerStop(u16 index)
-{
-    REG_TMR_CONTROL(index) = TMR_CONTROL_PAUSE;
-}
+void timerStop(u16 index);
 
 #ifdef __cplusplus
 }

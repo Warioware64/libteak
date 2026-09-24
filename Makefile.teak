@@ -5,8 +5,7 @@
 BLOCKSDS	?= /opt/blocksds/core
 BLOCKSDSEXT	?= /opt/blocksds/external
 
-WONDERFUL_TOOLCHAIN	?= /opt/wonderful
-LLVM_TEAK_PATH		?= $(WONDERFUL_TOOLCHAIN)/toolchain/llvm-teak/bin/
+LLVM_TEAK_PATH	?= $(BLOCKSDSEXT)/llvm-teak/bin/
 
 # Source code paths
 # -----------------
@@ -44,8 +43,16 @@ ARCHIVE		:= lib/$(NAME).a
 CC		:= $(LLVM_TEAK_PATH)clang
 CXX		:= $(LLVM_TEAK_PATH)clang++
 AR		:= $(LLVM_TEAK_PATH)llvm-ar
+LD		:= $(LLVM_TEAK_PATH)ld.lld
+NM		:= $(LLVM_TEAK_PATH)llvm-nm
+READOBJ		:= $(LLVM_TEAK_PATH)llvm-readobj
 MKDIR		:= mkdir
 RM		:= rm -rf
+
+ifeq ($(wildcard $(CC)),)
+    $(error Teak clang not found at "$(CC)". Build and install the Teak LLVM \
+	    toolchain (teak-llvm build-teak.sh) or set LLVM_TEAK_PATH)
+endif
 
 # Verbose flag
 # ------------
@@ -113,7 +120,7 @@ DEPS		:= $(OBJS:.o=.d)
 # Targets
 # -------
 
-.PHONY: all clean
+.PHONY: all check clean
 
 all: $(ARCHIVE)
 
@@ -125,6 +132,31 @@ $(ARCHIVE): $(OBJS)
 clean:
 	@echo "  CLEAN"
 	$(V)$(RM) $(ARCHIVE) $(BUILDDIR)
+
+# Link a small program against the library to catch toolchain regressions. The
+# entrypoint must be at address 0 and the code must fit in the 64 KiW of
+# program memory.
+
+SMOKE_OBJ	:= $(BUILDDIR)/smoke/main.c.o
+SMOKE_ELF	:= $(BUILDDIR)/smoke/smoke.elf
+
+check: $(SMOKE_ELF)
+	@echo "  CHECK   $<"
+	$(V)test "$$($(NM) $< | awk '$$3 == "_start" { print $$1 }')" = "00000000" || \
+		{ echo "error: _start is not at address 0 in $<"; exit 1; }
+	$(V)size=$$($(READOBJ) -S $< | awk '/Name: .text /{t=1} t && /Size:/{print $$2; exit}'); \
+		test -n "$$size" && test "$$size" -gt 0 && test "$$size" -le 131072 || \
+		{ echo "error: bad .text size '$$size' in $<"; exit 1; }
+
+$(SMOKE_ELF): $(SMOKE_OBJ) $(ARCHIVE) teak.ld
+	@echo "  LD      $@"
+	$(V)$(LD) -o $@ $(SMOKE_OBJ) -nostdlib -T teak.ld -L$(dir $(ARCHIVE)) \
+		-l$(patsubst lib%,%,$(NAME))
+
+$(SMOKE_OBJ): tests/smoke/main.c
+	@echo "  CC      $<"
+	@$(MKDIR) -p $(@D)
+	$(V)$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
 
 # Rules
 # -----
@@ -158,4 +190,4 @@ $(SOURCES_S) $(SOURCES_C) $(SOURCES_CPP): $(HEADERS_ASSETS)
 # Include dependency files if they exist
 # --------------------------------------
 
--include $(DEPS)
+-include $(DEPS) $(SMOKE_OBJ:.o=.d)

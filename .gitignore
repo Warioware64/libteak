@@ -2,3 +2,7 @@ build
 lib
 docs
 warn.log
+tools/teaktool/build
+tools/teaktool/teaktool
+examples/
+helpSrc/
