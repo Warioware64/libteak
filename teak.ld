@@ -49,5 +49,12 @@ SECTIONS
         __bss_end = .;
     }
 
+    /*
+     * Data memory is 0x0000-0x7FFF words: the MMIO registers start at 0x8000,
+     * and nothing prevents the sections above from growing into them.
+     */
+    ASSERT(__bss_end <= 0x10000000 + 0x8000 * 2,
+           "DSP data memory full: .rodata + .data + .bss go past word 0x8000")
+
     . = ALIGN(4);
 }

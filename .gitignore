@@ -4,5 +4,7 @@ docs
 warn.log
 tools/teaktool/build
 tools/teaktool/teaktool
-examples/
+
+helpSrc/tools/teaksim/build
+tools/teaksim/teaksim
 helpSrc/

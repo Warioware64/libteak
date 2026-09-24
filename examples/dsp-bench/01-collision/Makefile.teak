@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: CC0-1.0
+
+BLOCKSDSEXT	?= /opt/blocksds/external
+
+SOURCEDIRS	:= teak/source common
+INCLUDEDIRS	:= common teak/source
+
+include $(BLOCKSDSEXT)/libteak/mk/Makefile.teak
